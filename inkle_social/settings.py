@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,9 +29,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'development-insecure-secret')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes', 'on')
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = [h for h in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h]
+# Allow Render subdomains by default; you can override via env
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '.onrender.com,localhost,127.0.0.1').split(',') if h.strip()]
 
 
 # Application definition
@@ -158,11 +163,25 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
 }
 
-# CORS/CSRF
-_frontend_origins = os.getenv('FRONTEND_ORIGINS', os.getenv('FRONTEND_ORIGIN', 'http://localhost:3000'))
+# CORS/CSRF: lock down by default, opt-in via env
 CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('1','true','yes','on')
-CORS_ALLOWED_ORIGINS = [o for o in _frontend_origins.split(',') if o]
-CSRF_TRUSTED_ORIGINS = [o for o in _frontend_origins.split(',') if o]
+CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+# If CSRF_TRUSTED_ORIGINS not set, derive from allowed hosts that look like URLs
+_csrf_env = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if _csrf_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(',') if o.strip()]
+else:
+    # Convert bare hosts to https://host
+    CSRF_TRUSTED_ORIGINS = []
+    for host in ALLOWED_HOSTS:
+        if host.startswith('http://') or host.startswith('https://'):
+            CSRF_TRUSTED_ORIGINS.append(host)
+        elif host == 'localhost' or host == '127.0.0.1' or host.endswith('.onrender.com'):
+            scheme = 'http' if host in ('localhost','127.0.0.1') else 'https'
+            CSRF_TRUSTED_ORIGINS.append(f"{scheme}://{host}")
+
+# Honor X-Forwarded-Proto/Host from Render
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Custom user model
 AUTH_USER_MODEL = 'users.User'

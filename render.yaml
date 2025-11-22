@@ -1,9 +1,19 @@
+databases:
+  - name: inkle-db
+    plan: free
+    databaseName: inkle_db
+    user: inkle_user
+
 services:
   - type: web
     name: inkle-backend
     env: python
+    autoDeploy: true
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn inkle_social.wsgi:application
+    startCommand: gunicorn inkle_social.wsgi:application --bind 0.0.0.0:$PORT
+    postDeployCommand: |
+      python manage.py migrate --noinput
+      python manage.py collectstatic --noinput
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -11,10 +21,14 @@ services:
         generateValue: true
       - key: DEBUG
         value: False
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
       - key: CORS_ALLOW_ALL_ORIGINS
-        value: True
-  
-  - type: pserv
-    name: inkle-db
-    databaseName: inkle_db
-    databaseUser: inkle_user
+        value: False
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inkle-db
+          property: connectionString
+      # Optionally set the frontend origins for CORS/CSRF (comma-separated)
+      # - key: FRONTEND_ORIGINS
+      #   value: "https://your-frontend.example.com,https://www.your-frontend.example.com"
