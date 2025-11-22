@@ -1,0 +1,214 @@
+{
+  "info": {
+    "_postman_id": "6c3f51f1-6d2a-4f2a-88a9-inkle-clean",
+    "name": "Inkle Backend API",
+    "description": "Postman collection for the Inkle backend. Uses {{base_url}} and {{access_token}} variables. After running 'Login (JWT)', the access token is automatically saved to the active environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base_url", "value": "http://localhost:8000"},
+    {"key": "access_token", "value": ""}
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {"key": "token", "value": "{{access_token}}", "type": "string"}
+    ]
+  },
+  "item": [
+    {
+      "name": "Auth & Users",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": "{{base_url}}/api/auth/signup/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alice\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"secret123\"\n}",
+              "options": {"raw": {"language": "json"}}
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (JWT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": "{{base_url}}/api/auth/login/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alice\",\n  \"password\": \"secret123\"\n}",
+              "options": {"raw": {"language": "json"}}
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  var json = pm.response.json();",
+                  "  if (json && json.access) {",
+                  "    pm.environment.set('access_token', json.access);",
+                  "    pm.test('Saved access token to environment', function () { pm.expect(!!pm.environment.get('access_token')).to.be.true; });",
+                  "  }",
+                  "} catch (e) {",
+                  "  // not JSON or no token; ignore",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": "{{base_url}}/api/auth/refresh/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"<JWT_REFRESH>\"\n}",
+              "options": {"raw": {"language": "json"}}
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Me (Get)",
+          "request": {"method": "GET", "url": "{{base_url}}/api/users/me/"},
+          "response": []
+        },
+        {
+          "name": "Me (Patch)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": "{{base_url}}/api/users/me/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newalice@example.com\"\n}",
+              "options": {"raw": {"language": "json"}}
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Users",
+          "request": {"method": "GET", "url": "{{base_url}}/api/users/search/?q=alice"},
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "item": [
+        {"name": "List Posts", "request": {"method": "GET", "url": "{{base_url}}/api/posts/"}, "response": []},
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/posts/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello world!\"\n}",
+              "options": {"raw": {"language": "json"}}
+            }
+          },
+          "response": []
+        },
+        {"name": "Retrieve Post", "request": {"method": "GET", "url": "{{base_url}}/api/posts/10/"}, "response": []},
+        {
+          "name": "Update Post",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/posts/10/",
+            "body": {"mode": "raw", "raw": "{\n  \"content\": \"Edited\"\n}", "options": {"raw": {"language": "json"}}}
+          },
+          "response": []
+        },
+        {"name": "Delete Post (soft)", "request": {"method": "DELETE", "url": "{{base_url}}/api/posts/10/"}, "response": []},
+        {"name": "Like Post", "request": {"method": "POST", "url": "{{base_url}}/api/posts/10/like/"}, "response": []},
+        {"name": "Unlike Post", "request": {"method": "DELETE", "url": "{{base_url}}/api/posts/10/like/"}, "response": []}
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {"name": "List Comments (by post)", "request": {"method": "GET", "url": "{{base_url}}/api/comments/?post=10"}, "response": []},
+        {
+          "name": "Create Comment",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/comments/",
+            "body": {"mode": "raw", "raw": "{\n  \"post\": 10,\n  \"content\": \"Nice post!\"\n}", "options": {"raw": {"language": "json"}}}
+          },
+          "response": []
+        },
+        {
+          "name": "Update Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}/api/comments/20/",
+            "body": {"mode": "raw", "raw": "{\n  \"content\": \"Edited comment\"\n}", "options": {"raw": {"language": "json"}}}
+          },
+          "response": []
+        },
+        {"name": "Delete Comment (soft)", "request": {"method": "DELETE", "url": "{{base_url}}/api/comments/20/"}, "response": []}
+      ]
+    },
+    {
+      "name": "Social",
+      "item": [
+        {"name": "Follow User", "request": {"method": "POST", "url": "{{base_url}}/api/users/2/follow/"}, "response": []},
+        {"name": "Unfollow User", "request": {"method": "DELETE", "url": "{{base_url}}/api/users/2/follow/"}, "response": []},
+        {"name": "Block User", "request": {"method": "POST", "url": "{{base_url}}/api/users/2/block/"}, "response": []},
+        {"name": "Unblock User", "request": {"method": "DELETE", "url": "{{base_url}}/api/users/2/block/"}, "response": []}
+      ]
+    },
+    {
+      "name": "Activity & Notifications",
+      "item": [
+        {"name": "Feed (all)", "request": {"method": "GET", "url": "{{base_url}}/api/feed/"}, "response": []},
+        {"name": "Feed (posts only)", "request": {"method": "GET", "url": "{{base_url}}/api/feed/?type=posts&limit=10&offset=0"}, "response": []},
+        {"name": "List Notifications", "request": {"method": "GET", "url": "{{base_url}}/api/notifications/?limit=10&offset=0"}, "response": []},
+        {"name": "Mark All Notifications Read", "request": {"method": "POST", "url": "{{base_url}}/api/notifications/"}, "response": []},
+        {"name": "Mark Single Notification Read", "request": {"method": "POST", "url": "{{base_url}}/api/notifications/123/read/"}, "response": []}
+      ]
+    },
+    {
+      "name": "Admin Ops",
+      "item": [
+        {"name": "List Users", "request": {"method": "GET", "url": "{{base_url}}/api/admin/users/?limit=50&offset=0"}, "response": []},
+        {"name": "Deactivate User", "request": {"method": "DELETE", "url": "{{base_url}}/api/admin/users/2/"}, "response": []},
+        {"name": "Reactivate User", "request": {"method": "POST", "url": "{{base_url}}/api/admin/users/2/reactivate/"}, "response": []},
+        {"name": "Delete Post (admin)", "request": {"method": "DELETE", "url": "{{base_url}}/api/admin/posts/10/"}, "response": []}
+      ]
+    },
+    {
+      "name": "Docs",
+      "item": [
+        {"name": "OpenAPI Schema", "request": {"method": "GET", "url": "{{base_url}}/api/schema/"}, "response": []},
+        {"name": "Swagger UI", "request": {"method": "GET", "url": "{{base_url}}/api/docs/"}, "response": []}
+      ]
+    }
+  ]
+}

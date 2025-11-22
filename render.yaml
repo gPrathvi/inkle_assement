@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: inkle-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn inkle_social.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: True
+  
+  - type: pserv
+    name: inkle-db
+    databaseName: inkle_db
+    databaseUser: inkle_user
