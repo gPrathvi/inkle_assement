@@ -14,9 +14,11 @@ from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file at project root
+# This ensures local runs pick up DEBUG and other vars even if cwd differs
+load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / '.env')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,6 +35,18 @@ DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
 
 # Allow Render subdomains by default; you can override via env
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '.onrender.com,localhost,127.0.0.1').split(',') if h.strip()]
+# Auto-allow Render external hostname if available
+_render_external = os.getenv('RENDER_EXTERNAL_URL', '')
+if _render_external:
+    try:
+        _pu = urlparse(_render_external)
+        if _pu.hostname and _pu.hostname not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_pu.hostname)
+    except Exception:
+        pass
+# Optional: allow all hosts via env for troubleshooting
+if os.getenv('ALLOW_ALL_HOSTS', 'False').lower() in ('1','true','yes','on'):
+    ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -92,11 +106,23 @@ WSGI_APPLICATION = 'inkle_social.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# Database configuration
+# Prefer local SQLite when DEBUG is true unless FORCE_DATABASE_URL is set
+_db_url = os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3')
+_force_db_url = os.getenv('FORCE_DATABASE_URL', 'False').lower() in ('1','true','yes','on')
+if DEBUG and not _force_db_url:
+    _db_url_to_use = 'sqlite:///db.sqlite3'
+else:
+    _db_url_to_use = _db_url
+
+# Require SSL for Postgres in production (DEBUG False)
+_ssl_require = (not DEBUG) and _db_url_to_use.startswith('postgres')
+
 DATABASES = {
     'default': dj_database_url.parse(
-        os.getenv('DATABASE_URL', 'sqlite:///db.sqlite3'),
+        _db_url_to_use,
         conn_max_age=600,
-        ssl_require=False,
+        ssl_require=_ssl_require,
     )
 }
 
@@ -179,9 +205,19 @@ else:
         elif host == 'localhost' or host == '127.0.0.1' or host.endswith('.onrender.com'):
             scheme = 'http' if host in ('localhost','127.0.0.1') else 'https'
             CSRF_TRUSTED_ORIGINS.append(f"{scheme}://{host}")
-
+    # Ensure Render external origin is trusted
+    if _render_external:
+        try:
+            _pu = urlparse(_render_external)
+            _origin = f"{_pu.scheme}://{_pu.hostname}"
+            if _origin not in CSRF_TRUSTED_ORIGINS:
+                CSRF_TRUSTED_ORIGINS.append(_origin)
+        except Exception:
+            pass
 # Honor X-Forwarded-Proto/Host from Render
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# Honor X-Forwarded-Host from proxy (Render)
+USE_X_FORWARDED_HOST = True
 
 # Custom user model
 AUTH_USER_MODEL = 'users.User'

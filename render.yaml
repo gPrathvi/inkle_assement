@@ -14,6 +14,8 @@ services:
     postDeployCommand: |
       python manage.py migrate --noinput
       python manage.py collectstatic --noinput
+      echo "RENDER_EXTERNAL_URL: $RENDER_EXTERNAL_URL"
+      echo "ALLOWED_HOSTS: $ALLOWED_HOSTS"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -23,6 +25,9 @@ services:
         value: False
       - key: ALLOWED_HOSTS
         value: ".onrender.com,localhost,127.0.0.1"
+      # Optional emergency switch to allow all hosts (use only for diagnosing 400s)
+      - key: ALLOW_ALL_HOSTS
+        value: True
       - key: CORS_ALLOW_ALL_ORIGINS
         value: False
       - key: DATABASE_URL
