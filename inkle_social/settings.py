@@ -31,7 +31,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'development-insecure-secret')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('1', 'true', 'yes', 'on')  # Default to True for easier development
 
 # Allow Render subdomains by default; you can override via env
 ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '.onrender.com,localhost,127.0.0.1').split(',') if h.strip()]
@@ -169,6 +169,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',  # Add session auth for easier testing
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -176,6 +177,7 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 20,
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Inkle Social API',
@@ -189,9 +191,19 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
 }
 
-# CORS/CSRF: lock down by default, opt-in via env
-CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('1','true','yes','on')
-CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()]
+# CORS/CSRF: lock down by default, opt-in via env  
+# In DEBUG mode, allow all origins by default for easier testing
+CORS_ALLOW_ALL_ORIGINS = DEBUG or os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('1','true','yes','on')
+
+# Accept a few env var names for convenience
+_allowed_origins = set([o.strip() for o in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',') if o.strip()])
+_frontend_origin = os.getenv('FRONTEND_ORIGIN', '').strip()
+if _frontend_origin:
+    _allowed_origins.add(_frontend_origin)
+_frontend_origins = [o.strip() for o in os.getenv('FRONTEND_ORIGINS', '').split(',') if o.strip()]
+_allowed_origins.update(_frontend_origins)
+CORS_ALLOWED_ORIGINS = sorted(_allowed_origins)
+
 # If CSRF_TRUSTED_ORIGINS not set, derive from allowed hosts that look like URLs
 _csrf_env = os.getenv('CSRF_TRUSTED_ORIGINS', '')
 if _csrf_env:

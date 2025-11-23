@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inkle Social - Simple Frontend</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #0056b3; }
+        .error { color: red; }
+        .success { color: green; }
+        .hidden { display: none; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 3px; }
+        .post { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .notification { background: #e7f3ff; padding: 5px; margin: 5px 0; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Inkle Social - Simple Frontend Test</h1>
+    
+    <!-- Login/Signup Section -->
+    <div class="section" id="authSection">
+        <h2>📝 Login / Signup</h2>
+        <div>
+            <input type="text" id="username" placeholder="Username">
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <div>
+                <button class="button" onclick="signup()">Sign Up</button>
+                <button class="button" onclick="login()">Login</button>
+            </div>
+        </div>
+        <div id="authResult"></div>
+    </div>
+
+    <!-- Main App Section (hidden until login) -->
+    <div class="section hidden" id="mainApp">
+        <h2>👋 Welcome, <span id="welcomeUser"></span>!</h2>
+        
+        <!-- User Profile -->
+        <div class="section">
+            <h3>👤 Your Profile</h3>
+            <div id="profileInfo"></div>
+            <button class="button" onclick="loadProfile()">Refresh Profile</button>
+        </div>
+
+        <!-- Create Post -->
+        <div class="section">
+            <h3>📝 Create Post</h3>
+            <textarea id="postContent" placeholder="What's on your mind?" rows="3"></textarea>
+            <button class="button" onclick="createPost()">Post</button>
+            <div id="postResult"></div>
+        </div>
+
+        <!-- Posts Feed -->
+        <div class="section">
+            <h3>📰 Posts Feed</h3>
+            <button class="button" onclick="loadPosts()">Refresh Posts</button>
+            <div id="postsContainer"></div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="section">
+            <h3>📬 Your Notifications</h3>
+            <button class="button" onclick="loadNotifications()">Refresh Notifications</button>
+            <div id="notificationsContainer"></div>
+        </div>
+
+        <!-- Activity Feed -->
+        <div class="section">
+            <h3>📊 Activity Feed</h3>
+            <button class="button" onclick="loadActivityFeed()">Refresh Activity</button>
+            <div id="activityContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let authToken = null;
+        let currentUser = null;
+
+        // Helper function for API calls
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const config = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+            
+            if (authToken) {
+                config.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+            
+            if (data) {
+                config.body = JSON.stringify(data);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, config);
+                const result = await response.json();
+                return { status: response.status, data: result };
+            } catch (error) {
+                return { status: 0, error: error.message };
+            }
+        }
+
+        // Authentication
+        async function signup() {
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !email || !password) {
+                showResult('authResult', 'Please fill all fields', 'error');
+                return;
+            }
+            
+            const result = await apiCall('/api/auth/signup/', 'POST', { username, email, password });
+            
+            if (result.status === 201) {
+                showResult('authResult', 'Signup successful! Now login.', 'success');
+            } else {
+                showResult('authResult', `Signup failed: ${JSON.stringify(result.data)}`, 'error');
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showResult('authResult', 'Please enter username and password', 'error');
+                return;
+            }
+            
+            const result = await apiCall('/api/auth/login/', 'POST', { username, password });
+            
+            if (result.status === 200) {
+                authToken = result.data.access;
+                showResult('authResult', 'Login successful!', 'success');
+                
+                // Hide auth section, show main app
+                document.getElementById('authSection').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                
+                // Load user data
+                await loadProfile();
+                await loadPosts();
+                await loadNotifications();
+                
+            } else {
+                showResult('authResult', `Login failed: ${JSON.stringify(result.data)}`, 'error');
+            }
+        }
+
+        // Profile
+        async function loadProfile() {
+            const result = await apiCall('/api/users/me/');
+            
+            if (result.status === 200) {
+                currentUser = result.data;
+                document.getElementById('welcomeUser').textContent = currentUser.username;
+                document.getElementById('profileInfo').innerHTML = `
+                    <p><strong>Username:</strong> ${currentUser.username}</p>
+                    <p><strong>Email:</strong> ${currentUser.email}</p>
+                    <p><strong>ID:</strong> ${currentUser.id}</p>
+                    <p><strong>Role:</strong> ${currentUser.role}</p>
+                    <p><strong>Joined:</strong> ${new Date(currentUser.date_joined).toLocaleDateString()}</p>
+                `;
+            } else {
+                showResult('profileInfo', 'Failed to load profile', 'error');
+            }
+        }
+
+        // Posts
+        async function createPost() {
+            const content = document.getElementById('postContent').value;
+            
+            if (!content.trim()) {
+                showResult('postResult', 'Please enter post content', 'error');
+                return;
+            }
+            
+            const result = await apiCall('/api/posts/', 'POST', { content });
+            
+            if (result.status === 201) {
+                showResult('postResult', 'Post created successfully!', 'success');
+                document.getElementById('postContent').value = '';
+                await loadPosts(); // Refresh posts
+            } else {
+                showResult('postResult', `Failed to create post: ${JSON.stringify(result.data)}`, 'error');
+            }
+        }
+
+        async function loadPosts() {
+            const result = await apiCall('/api/posts/');
+            
+            if (result.status === 200) {
+                const posts = result.data.results || [];
+                const container = document.getElementById('postsContainer');
+                
+                if (posts.length === 0) {
+                    container.innerHTML = '<p>No posts yet. Create the first one!</p>';
+                    return;
+                }
+                
+                container.innerHTML = posts.map(post => `
+                    <div class="post">
+                        <strong>User ${post.author}</strong> • ${new Date(post.created_at).toLocaleString()}
+                        <p>${post.content}</p>
+                        <div>
+                            ❤️ ${post.likes_count} likes
+                            <button class="button" onclick="likePost(${post.id})" style="margin-left: 10px;">Like</button>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('postsContainer').innerHTML = '<p class="error">Failed to load posts</p>';
+            }
+        }
+
+        async function likePost(postId) {
+            const result = await apiCall(`/api/posts/${postId}/like/`, 'POST', {});
+            
+            if (result.status === 201) {
+                await loadPosts(); // Refresh to show updated like count
+            } else {
+                alert('Failed to like post');
+            }
+        }
+
+        // Notifications
+        async function loadNotifications() {
+            const result = await apiCall('/api/notifications/');
+            
+            if (result.status === 200) {
+                const notifications = result.data.results || [];
+                const container = document.getElementById('notificationsContainer');
+                
+                if (notifications.length === 0) {
+                    container.innerHTML = '<p>No notifications yet.</p>';
+                    return;
+                }
+                
+                container.innerHTML = notifications.map(notif => `
+                    <div class="notification">
+                        <strong>${notif.type}</strong> • ${new Date(notif.created_at).toLocaleString()}
+                        ${notif.is_read ? '' : ' • <strong>NEW!</strong>'}
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('notificationsContainer').innerHTML = '<p class="error">Failed to load notifications</p>';
+            }
+        }
+
+        // Activity Feed
+        async function loadActivityFeed() {
+            const result = await apiCall('/api/feed/');
+            
+            if (result.status === 200) {
+                const activities = result.data.results || [];
+                const container = document.getElementById('activityContainer');
+                
+                if (activities.length === 0) {
+                    container.innerHTML = '<p>No activity yet.</p>';
+                    return;
+                }
+                
+                container.innerHTML = activities.map(activity => `
+                    <div class="notification">
+                        <strong>${activity.type}</strong> • User ${activity.actor_id} • ${new Date(activity.created_at).toLocaleString()}
+                    </div>
+                `).join('');
+            } else {
+                document.getElementById('activityContainer').innerHTML = '<p class="error">Failed to load activity feed</p>';
+            }
+        }
+
+        // Helper function to show results
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<p class="${type}">${message}</p>`;
+        }
+    </script>
+</body>
+</html>
